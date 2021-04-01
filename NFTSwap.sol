@@ -3,6 +3,7 @@
 pragma solidity^0.8.0;
 
 import "./interfaces/IERC721Receiver.sol";
+import "./interfaces/IERC721.sol";
 
 contract NFTSwap is IERC721Receiver {
     // Variables
@@ -89,13 +90,24 @@ contract NFTSwap is IERC721Receiver {
     }
     
     // Force cancel bid, to prevent DDoS by bidding from contract.
-    function force_remove_bit(address NFTContract, uint256 NFTId) public {
+    function force_remove_bid(address NFTContract, uint256 NFTId) public {
         require(_privilleged_operators[msg.sender] == true, "Operator only");
         // Remove bid and disable the nft's auction.
         onAuction[NFTContract][NFTId] == false;
         bid_end_time[NFTContract][NFTId] == 2**256 - 1;
         balance[current_bidder[NFTContract][NFTId]] += current_auction_price[NFTContract][NFTId];
         emit ForceRemoval(msg.sender, NFTContract, NFTId, current_bidder[NFTContract][NFTId]);
+    }
+
+    // Allow to auction specified token
+    function allow(address NFTContract) public {
+        require(_privilleged_operators[msg.sender], "Denied");
+        _allowed_to_exchange[NFTContract] = true;
+    }
+
+    function disallow(address NFTContract) public {
+        require(_privilleged_operators[msg.sender], "Denied");
+        _allowed_to_exchange[NFTContract] = false;
     }
     
     // Withdrawal methods
@@ -106,11 +118,12 @@ contract NFTSwap is IERC721Receiver {
         out.transfer(amount);
     }
 
-    function withDrawERC721(address NFTContract, uint256 NFTId) public {
+    function withDrawERC721(address NFTContract, uint256 NFTId) public payable {
         require(onAuction[NFTContract][NFTId] == false, "The nft is still on auction, pls claim it or wait for finish");
         require(_ownership[NFTContract][NFTId] == msg.sender, "You must be the token's owner");
-        // Withdrawal process
-        // Current omitted here, Todo.
+        _ownership[NFTContract][NFTId] = address(0);
+        ERC721(NFTContract).safeTransferFrom(address(this), msg.sender, NFTId);
+        // Currently we do not support using approval mechinesm or paid transfer. This will be added later
     }
 
     function ownerWithdrawal(uint256 amount) public {
@@ -159,7 +172,11 @@ contract NFTSwap is IERC721Receiver {
         emit AuctionMade(NFTContract, NFTId, current_bidder[NFTContract][NFTId]);
     }
     
-    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external override returns (bytes4) {
+    function onERC721Received(address, address from, uint256 tokenId, bytes calldata) external override returns (bytes4) {
+        // Check if the contract is approved for receiving
+        require(_allowed_to_exchange[msg.sender], "Token not approved for auction");
+        // Set token ownership
+        _ownership[msg.sender][tokenId] = from;
         return bytes4(this.onERC721Received.selector);
     }
 }
