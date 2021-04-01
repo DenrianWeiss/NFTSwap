@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity^0.8.0;
+pragma solidity>=0.8.0;
 
 import "./interfaces/IERC721Receiver.sol";
 import "./interfaces/IERC721.sol";
@@ -142,7 +142,7 @@ contract NFTSwap is IERC721Receiver {
         // 2. Enable Auction
         onAuction[NFTContract][NFTId] = true;
         // 3. Set timestamp
-        bid_end_time[NFTContract][NFTId] = block.timestamp + 1 days;
+        bid_end_time[NFTContract][NFTId] = block.number + 5760;
     }
 
     function bid(address NFTContract, uint256 NFTId) public payable {
@@ -155,11 +155,11 @@ contract NFTSwap is IERC721Receiver {
         // 2. Change bidder
         current_bidder[NFTContract][NFTId] = msg.sender;
         // 3. Set timestamp
-        bid_end_time[NFTContract][NFTId] = block.timestamp + 1 days;
+        bid_end_time[NFTContract][NFTId] = block.number + 5760;
     }
 
     function claimAuction(address NFTContract, uint256 NFTId) public {
-        require(block.timestamp > bid_end_time[NFTContract][NFTId], "Auction still active.");
+        require(block.number > bid_end_time[NFTContract][NFTId], "Auction still active.");
         require(msg.sender == _ownership[NFTContract][NFTId] 
         || msg.sender == current_bidder[NFTContract][NFTId],
          "You are not allowed to do this.");
